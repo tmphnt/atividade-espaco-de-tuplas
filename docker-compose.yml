@@ -1,0 +1,61 @@
+services:
+
+  # ── Serviço de descoberta Jini ─────────────────────────────────────────────
+  # reggie deve iniciar antes de qualquer outro serviço.
+  # Clientes o consultam para descobrir onde está o espaço de tuplas —
+  # sem reggie, nenhum cliente consegue se conectar ao javaspaces.
+  reggie:
+    build: ./infra/reggie
+    hostname: reggie
+    networks:
+      - rede-tuplas
+
+  # ── Espaço de tuplas (Apache River / Outrigger) ────────────────────────────
+  # Registra-se no reggie ao iniciar. Armazena as tuplas em memória.
+  # Todos os write(), take() e read() dos clientes chegam aqui.
+  javaspaces:
+    build: ./infra/javaspaces
+    hostname: javaspaces
+    depends_on:
+      - reggie
+    networks:
+      - rede-tuplas
+
+  # ── Produtor ────────────────────────────────────────────────────────────────
+  # Deposita 5 tarefas via write() e encerra.
+  # Não tem qualquer referência ao consumidor.
+  produtor:
+    build: ./produtor
+    hostname: produtor
+    depends_on:
+      - javaspaces
+    networks:
+      - rede-tuplas
+
+  # ── Consumidor ──────────────────────────────────────────────────────────────
+  # Retira e processa tarefas via take() em loop contínuo.
+  # Comportamento de prioridade controlado por consumidor/config.properties.
+  # Para escalar: docker compose up --scale consumidor=2
+  consumidor:
+    build: ./consumidor
+    environment:
+      - NOME_CONSUMIDOR=CONSUMIDOR-${HOSTNAME:-1}
+    depends_on:
+      - javaspaces
+    networks:
+      - rede-tuplas
+
+  # ── Monitor ─────────────────────────────────────────────────────────────────
+  # Nível 2B: bloco descomentado depois de completar o Monitor.java.
+  # Observa o espaço com read() (não-destrutivo) e conta as tarefas pendentes.
+  monitor:
+    build: ./monitor
+    hostname: monitor
+    depends_on:
+      - javaspaces
+    networks:
+      - rede-tuplas
+
+networks:
+  rede-tuplas:
+    driver: bridge

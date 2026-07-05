@@ -1,0 +1,5 @@
+/* Permissive policy for the educational environment.
+   Never use grant all in production. */
+grant {
+    permission java.security.AllPermission;
+};
