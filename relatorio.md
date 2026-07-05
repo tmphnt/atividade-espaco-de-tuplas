@@ -167,28 +167,28 @@ Preencha a tabela com base no que você observou nos logs:
 1. As tarefas de prioridade alta foram processadas antes das de prioridade baixa? Cole um trecho dos logs que evidencie isso:
 
 ```
-[PRODUTOR] write: TaskEntry{id=1, tipo="calcular", prioridade=2}
-[PRODUTOR] write: TaskEntry{id=2, tipo="calcular", prioridade=1}
-[CONSUMIDOR] take: TaskEntry{id=2, tipo="calcular", prioridade=1}
-[PRODUTOR] write: TaskEntry{id=3, tipo="calcular", prioridade=2}
-[CONSUMIDOR] Processamento concluído: tarefa 2
-[PRODUTOR] write: TaskEntry{id=4, tipo="calcular", prioridade=1}
-[CONSUMIDOR] take: TaskEntry{id=4, tipo="calcular", prioridade=1}
-[PRODUTOR] write: TaskEntry{id=5, tipo="calcular", prioridade=1}
-[CONSUMIDOR] Processamento concluído: tarefa 4
-[CONSUMIDOR] take: TaskEntry{id=5, tipo="calcular", prioridade=1}
-[PRODUTOR] Todas as tarefas depositadas. Encerrando.
-[CONSUMIDOR] Processamento concluído: tarefa 5
-[CONSUMIDOR] Nenhuma tarefa de alta prioridade disponível. Buscando qualquer tarefa...
-[CONSUMIDOR] take: TaskEntry{id=1, tipo="calcular", prioridade=2}
-[CONSUMIDOR] Processamento concluído: tarefa 1
-[CONSUMIDOR] Nenhuma tarefa de alta prioridade disponível. Buscando qualquer tarefa...
-[CONSUMIDOR] take: TaskEntry{id=3, tipo="calcular", prioridade=2}
-[CONSUMIDOR] Processamento concluído: tarefa 3
+produtor-1    | [PRODUTOR] Espaço encontrado via lookup.
+produtor-1    | [PRODUTOR] write: TaskEntry{id=1, tipo="calcular", prioridade=2}
+produtor-1    | [PRODUTOR] write: TaskEntry{id=2, tipo="calcular", prioridade=1}
+produtor-1    | [PRODUTOR] write: TaskEntry{id=3, tipo="calcular", prioridade=2}
+produtor-1    | [PRODUTOR] write: TaskEntry{id=4, tipo="calcular", prioridade=1}
+produtor-1    | [PRODUTOR] write: TaskEntry{id=5, tipo="calcular", prioridade=1}
+consumidor-1  | [CONSUMIDOR-1] take: TaskEntry{id=2, tipo="calcular", prioridade=1}
+consumidor-1  | [CONSUMIDOR-1] Processamento concluído: tarefa 2
+consumidor-1  | [CONSUMIDOR-1] take: TaskEntry{id=4, tipo="calcular", prioridade=1}
+consumidor-1  | [CONSUMIDOR-1] Processamento concluído: tarefa 4
+consumidor-1  | [CONSUMIDOR-1] take: TaskEntry{id=5, tipo="calcular", prioridade=1}
+consumidor-1  | [CONSUMIDOR-1] Processamento concluído: tarefa 5
+consumidor-1  | [CONSUMIDOR-1] Nenhuma tarefa de alta prioridade disponível. Buscando qualquer tarefa...
+consumidor-1  | [CONSUMIDOR-1] take: TaskEntry{id=1, tipo="calcular", prioridade=2}
+consumidor-1  | [CONSUMIDOR-1] Processamento concluído: tarefa 1
+consumidor-1  | [CONSUMIDOR-1] take: TaskEntry{id=3, tipo="calcular", prioridade=2}
+consumidor-1  | [CONSUMIDOR-1] Processamento concluído: tarefa 3
 ```
 
 Dá pra ver as de prioridade 1 (id 2, 4 e 5) saindo antes das de prioridade 2 (id 1 e 3),
-mesmo a id 1 tendo sido escrita primeiro.
+mesmo a id 1 tendo sido escrita primeiro. (Os logs saem agrupados por container, mas a
+sequência de take deixa a ordem de prioridade clara.)
 
 2. O produtor precisou ser modificado para que isso funcionasse?
 
@@ -284,14 +284,16 @@ _(Comportamentos inesperados, erros encontrados, dificuldades técnicas — desc
 >   próximas vezes o cache do Docker ajuda.
 > - Os logs do reggie e do javaspaces jogam um monte de INFO em inglês do próprio
 >   framework, o que polui a saída. A gente foi olhando só as linhas com
->   [PRODUTOR], [CONSUMIDOR] e [MONITOR] pra acompanhar.
+>   [PRODUTOR], [CONSUMIDOR-1] e [MONITOR] pra acompanhar (o nome do consumidor
+>   sai com sufixo por causa do NOME_CONSUMIDOR no compose).
 > - A ordem de subida importa mesmo. Quando o reggie e o javaspaces ainda estavam
 >   inicializando, o produtor e o consumidor ficaram um tempo no "Aguardando
 >   espaço... (x/20)" antes de conectar, é normal.
-> - No monitor a contagem às vezes oscila entre uma leitura e outra, por causa da
->   heurística do read() (ele pode repetir tuplas e o espaço muda enquanto os
->   consumidores vão tirando tarefa). A gente ajustou o MAX_SEM_NOVIDADE pra
->   estabilizar melhor.
+> - O monitor mostrou "Tarefas pendentes: 1" enquanto tinha tarefa esperando e "0"
+>   depois que o consumidor esvaziava. Como o consumidor consome quase no mesmo
+>   ritmo que o produtor escreve, na maioria dos ticks de 3s tinha 0 ou 1 pendente.
+>   A contagem é heurística (o read() pode repetir tupla e o espaço muda no meio),
+>   então ela serve pra ter uma ideia, não como número exato.
 
 ---
 
